@@ -15,8 +15,8 @@ from datasets import get_dataset
 from loss import *
 from utils import *
 
+
 def train(args):
-    
     # prepare datasets
     if args.dataset == 'i19S':
         datasetSs = get_dataset('7S')
@@ -102,7 +102,7 @@ def train(args):
             lbl_1_loss_list = []
             lbl_2_loss_list = []
                 
-        for _, (img, coord, mask, lbl_1, lbl_2, lbl_1_oh, 
+        for _, (img, coord, mask, lbl_1, lbl_2, lbl_1_oh,
                 lbl_2_oh) in enumerate(tqdm(trainloader)):
 
             if mask.sum() == 0:
@@ -188,6 +188,7 @@ if __name__ == '__main__':
     parser.add_argument('--train_id', nargs='?', type=str, default='',
                         help='An identifier string')
     args = parser.parse_args()
+    print(args)
 
     if args.dataset == '7S':
         if args.scene not in ['chess', 'heads', 'fire', 'office', 'pumpkin',

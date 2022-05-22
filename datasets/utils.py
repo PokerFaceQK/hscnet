@@ -57,6 +57,7 @@ def get_coord(depth, pose, intrinsics_color_inv):
     xx, yy = np.meshgrid(x, y)
     xx = np.reshape(xx, (1, -1))
     yy = np.reshape(yy, (1, -1))
+    
     ones = np.ones_like(xx)
     pcoord = np.concatenate((xx, yy, ones), axis=0)
     depth = np.reshape(depth, (1, img_height*img_width))
