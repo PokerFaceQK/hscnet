@@ -2,6 +2,7 @@
 from pathlib import Path
 
 import yaml
+from tqdm import tqdm
 import numpy as np
 import cv2
 from torch.utils.data import Dataset
@@ -36,6 +37,12 @@ class Rio10Dataset(Dataset):
 
         self.len = len(list(self.seq_path.glob("*color.jpg")))
         self.target_shape = (self.img_shape[0] // 32 * 32, self.img_shape[1] // 32 * 32)
+
+        self.cache = {}
+        print("Preloading dataset")
+        for i in tqdm(range(self.__len__())):
+            self.__getitem__(i)
+
 
     def read_intrinsics(self):
         intrinsics_path = self.seq_path / "camera.yaml"
@@ -89,32 +96,37 @@ class Rio10Dataset(Dataset):
         return self.len
     
     def __getitem__(self, idx):
-        frame = self.get_frame_by_idx(idx)
-        img = self.read_img(frame['color'])
-        depth = self.read_depth(frame['depth'])
-        label = self.read_label(frame['label'])
-        pose = self.read_pose(frame['pose'])
+        if self.cache.get(idx):
+            img, coord, mask, label = self.cache.get(idx)
+        else:
+            frame = self.get_frame_by_idx(idx)
+            img = self.read_img(frame['color'])
+            depth = self.read_depth(frame['depth'])
+            label = self.read_label(frame['label'])
+            pose = self.read_pose(frame['pose'])
 
-        if not self.split == "train":
-            return to_tensor_query(img, pose)
-        
-        center_coord = self.centers[np.reshape(label, (-1))-1, :]
-        center_coord = np.reshape(center_coord, (960, 540, 3)) * 1000
+            if not self.split == "train":
+                return to_tensor_query(img, pose)
 
-        depth[depth == 65535] = 0
-        depth = depth * 1.0
-        coord, mask = get_coord(depth, pose, self.intrinsics_inv)
-        img, coord, center_coord, mask, label = data_aug(
-            img=img,
-            coord=coord,
-            ctr_coord=center_coord,
-            mask=mask,
-            lbl=label,
-            aug=self.aug
-        )
+            center_coord = self.centers[np.reshape(label, (-1))-1, :]
+            center_coord = np.reshape(center_coord, (960, 540, 3)) * 1000
 
-        # get relative coord to center of sub regions
-        coord = coord - center_coord
+            depth[depth == 65535] = 0
+            depth = depth * 1.0
+            coord, mask = get_coord(depth, pose, self.intrinsics_inv)
+            img, coord, center_coord, mask, label = data_aug(
+                img=img,
+                coord=coord,
+                ctr_coord=center_coord,
+                mask=mask,
+                lbl=label,
+                aug=self.aug
+            )
+
+            # get relative coord to center of sub regions
+            coord = coord - center_coord
+            self.cache[idx] = (img, coord, mask, label)
+            return
 
         offset, img = self.crop(img)
         _, coord = self.crop(coord, offset)

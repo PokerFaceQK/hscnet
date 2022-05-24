@@ -154,7 +154,7 @@ class HSCNet(nn.Module):
             conv_planes_g2 = [256, 128, 128, 256, 512]
         elif self.dataset == 'i19S':
             conv_planes_g2 = [256, 128, 128, 256, 512]
-        else: 
+        else:
             conv_planes_g2 = [50, 64, 128, 256, 512]
         self.gconv2_1 = conv(conv_planes_c1[6] + conv_planes_c2[5], 
                     conv_planes_g2[0], kernel_size=1, stride=1)
@@ -192,10 +192,10 @@ class HSCNet(nn.Module):
         out = self.conv4a(out)
         out = self.conv4b(out)
         out_conv4c = self.conv4c(out)
-        
+
         out_convc1 = self.convc1(out_conv4c)
         out_dsconv1 = self.dsconv1(out_convc1)
-        
+
         out = self.dsconv2(out_dsconv1)
         out = self.upconv2(out)
         out = self.convc4(torch.cat((out, out_dsconv1), 1))
