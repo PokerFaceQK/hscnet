@@ -1,6 +1,4 @@
 from __future__ import division
-from codecs import getdecoder
-from pkgutil import get_data
 
 import sys
 import os
@@ -44,8 +42,6 @@ def train(args):
         dataset = dataset(args.data_path, args.dataset, args.scene,
                           model=args.model, aug=args.aug)
 
-    trainloader = data.DataLoader(dataset, batch_size=args.batch_size,
-                                  num_workers=0, shuffle=False)
     
     # loss
     reg_loss = EuclideanLoss()
@@ -100,6 +96,13 @@ def train(args):
     args.n_epoch = int(np.ceil(args.n_iter * args.batch_size / len(dataset)))
 
     for epoch in range(start_epoch, args.n_epoch+1):
+        if epoch == 0:
+            num_workers = 0
+        else:
+            num_workers = 4
+        trainloader = data.DataLoader(dataset, batch_size=args.batch_size,
+                                num_workers=num_workers, shuffle=True)
+            
         lr = adjust_lr(optimizer, args.init_lr, (epoch - 1) 
                        * np.ceil(len(dataset) / args.batch_size), 
                        args.n_iter)

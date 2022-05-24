@@ -1,5 +1,6 @@
 """Dataset interface for rio10."""
 from pathlib import Path
+from copy import deepcopy
 
 import yaml
 from tqdm import tqdm
@@ -39,10 +40,12 @@ class Rio10Dataset(Dataset):
         self.target_shape = (self.img_shape[0] // 32 * 32, self.img_shape[1] // 32 * 32)
 
         self.cache = {}
-        print("Preloading dataset")
-        for i in tqdm(range(self.__len__())):
-            self.__getitem__(i)
-
+        # print("Preloading dataset")
+        # for i in tqdm(range(self.__len__())):
+        #     self.__getitem__(i)
+    
+    def load_cache(self, cache):
+        self.cache = deepcopy(cache)
 
     def read_intrinsics(self):
         intrinsics_path = self.seq_path / "camera.yaml"
@@ -126,7 +129,7 @@ class Rio10Dataset(Dataset):
             # get relative coord to center of sub regions
             coord = coord - center_coord
             self.cache[idx] = (img, coord, mask, label)
-            return
+            # return
 
         offset, img = self.crop(img)
         _, coord = self.crop(coord, offset)
