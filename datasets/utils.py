@@ -1,5 +1,7 @@
 from __future__ import division
 
+from pathlib import Path
+import pickle
 import torch
 import numpy as np
 import random
@@ -147,3 +149,33 @@ def to_tensor_query(img, pose):
     pose = torch.from_numpy(pose).float()
 
     return img, pose
+
+
+
+class DataCache:
+    """Cache for transformed data."""
+
+    def __init__(self, root_path):
+        self.root_path = Path(root_path)
+        if self.root_path.is_file():
+            raise ValueError("Invalid path for cache!")
+        if not self.root_path.is_dir():
+            self.root_path.mkdir(parents=True)
+        self.idx2path = {}
+
+    def get_file_name(self, idx):
+        return self.root_path / f"cache_{idx}.pickle"
+
+    def __getitem__(self, idx):
+        if not self.get_file_name(idx).is_file():
+            return None
+        with open(self.get_file_name(idx), 'rb') as f:
+            res_data = pickle.load(f)
+        return res_data
+
+    def get(self, idx):
+        return self.__getitem__(idx)
+
+    def __setitem__(self, idx, value):
+        with open(str(self.get_file_name(idx)), 'wb') as f:
+            pickle.dump(value, f)

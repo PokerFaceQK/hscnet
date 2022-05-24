@@ -1,4 +1,6 @@
 from __future__ import division
+from codecs import getdecoder
+from pkgutil import get_data
 
 import sys
 import os
@@ -11,7 +13,7 @@ import numpy as np
 from tqdm import tqdm
 
 from models import get_model
-from datasets import get_dataset
+from datasets import get_dataset, Rio10Dataset
 from loss import *
 from utils import *
 
@@ -26,6 +28,12 @@ def train(args):
         datasetTs = datasetTs(args.data_path, args.dataset, model=args.model,
                     aug=args.aug)
         dataset = data.ConcatDataset([datasetSs,datasetTs])
+    elif args.dataset == "rio10":
+        dataset = Rio10Dataset(
+            data_path=args.data_path,
+            split='train',
+            aug=True
+        )
     else:
         if args.dataset in ['7S', 'i7S']: 
             dataset = get_dataset('7S')
@@ -37,7 +45,7 @@ def train(args):
                           model=args.model, aug=args.aug)
 
     trainloader = data.DataLoader(dataset, batch_size=args.batch_size,
-                                  num_workers=4, shuffle=True)
+                                  num_workers=0, shuffle=False)
     
     # loss
     reg_loss = EuclideanLoss()
@@ -53,7 +61,7 @@ def train(args):
     model = get_model(args.model, args.dataset)
     model.init_weights()
     model.to(device)
-    
+
     optimizer = torch.optim.Adam(model.parameters(), lr=args.init_lr, eps=1e-8, 
                                  betas=(0.9, 0.999))
 
@@ -134,7 +142,7 @@ def train(args):
                 lbl_1_loss_list.append(lbl_1_loss.item())
                 lbl_2_loss_list.append(lbl_2_loss.item())          
             train_loss_list.append(train_loss.item())
-            
+
             train_loss.backward()
             optimizer.step()
 
@@ -153,10 +161,10 @@ def train(args):
             print(logtt)
             logfile.write(logtt)
         
-        if epoch % int(np.floor(args.n_epoch / 5.)) == 0:
+        if int(np.floor(args.n_epoch / 5.)) and epoch % int(np.floor(args.n_epoch / 5.)) == 0:
             save_state(args.save_path, epoch, model, optimizer)
 
-    save_state(args.save_path, epoch, model, optimizer)   
+    save_state(args.save_path, epoch, model, optimizer)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Hscnet")
@@ -165,7 +173,7 @@ if __name__ == '__main__':
                         help='Model to use [\'hscnet, scrnet\']')
     parser.add_argument('--dataset', nargs='?', type=str, default='7S', 
                         choices=('7S', '12S', 'i7S', 'i12S', 'i19S',
-                        'Cambridge'), help='Dataset to use')
+                        'Cambridge', 'rio10'), help='Dataset to use')
     parser.add_argument('--scene', nargs='?', type=str, default='heads', 
                         help='Scene')
     parser.add_argument('--n_iter', nargs='?', type=int, default=900000,
