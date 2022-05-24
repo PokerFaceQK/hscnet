@@ -98,10 +98,11 @@ def train(args):
     for epoch in range(start_epoch, args.n_epoch+1):
         if epoch == 0:
             num_workers = 0
+            trainloader = data.DataLoader(dataset, batch_size=args.batch_size,
+                                num_workers=num_workers, shuffle=True)
         else:
             num_workers = 4
-        trainloader = data.DataLoader(dataset, batch_size=args.batch_size,
-                                num_workers=num_workers, shuffle=True)
+            trainloader.num_workers = num_workers
             
         lr = adjust_lr(optimizer, args.init_lr, (epoch - 1) 
                        * np.ceil(len(dataset) / args.batch_size), 
