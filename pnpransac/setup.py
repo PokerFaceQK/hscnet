@@ -2,6 +2,7 @@ import sys
 import os
 from distutils.core import setup
 from distutils.extension import Extension
+import numpy as np
 
 from Cython.Distutils import build_ext
 from Cython.Build import cythonize
@@ -15,7 +16,7 @@ ext_modules = [
         "pnpransac",
         sources=["pnpransacpy.pyx"],
         language="c++",
-        include_dirs=[cv_include_dir],
+        include_dirs=[cv_include_dir, np.get_include()],
         library_dirs=[cv_library_dir],
         libraries=['opencv_core','opencv_calib3d'],
         extra_compile_args=['-fopenmp','-std=c++11'],

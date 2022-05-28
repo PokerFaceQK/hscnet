@@ -11,7 +11,7 @@ from torch.utils import data
 sys.path.insert(0, './pnpransac')
 from pnpransac import pnpransac
 from models import get_model
-from datasets import get_dataset
+from datasets import get_dataset, Rio10Dataset
 
 def get_pose_err(pose_gt, pose_est):
     transl_err = np.linalg.norm(pose_gt[0:3,3]-pose_est[0:3,3])
@@ -91,6 +91,12 @@ def eval(args):
         for scene in scenes_12S:
             centers = np.concatenate([centers, dataset.scene_data[scene][2]
                     + dataset.scene_data[scene][0]])
+    elif args.dataset == 'rio10':
+        dataset = Rio10Dataset(
+            data_path=args.data_path,
+            split='test',
+        )
+        centers = dataset.centers
     else:
         dataset = get_dataset(args.dataset)
         dataset = dataset(args.data_path, args.dataset, args.scene, 
@@ -98,7 +104,7 @@ def eval(args):
         centers = dataset.centers
     intrinsics_color = dataset.intrinsics_color
     dataloader = data.DataLoader(dataset, batch_size=1,
-                                  num_workers=4, shuffle=False)
+                                  num_workers=0, shuffle=False)
     pose_solver = pnpransac(intrinsics_color[0,0], intrinsics_color[1,1],
             intrinsics_color[0,2], intrinsics_color[1,2])
 
@@ -116,10 +122,16 @@ def eval(args):
     rot_err_list = []
     transl_err_list = []
 
-    x = np.linspace(4, 640-4, 80) + 106 * (args.dataset == 'Cambridge')
-    y = np.linspace(4, 480-4, 60)
+    if args.dataset == 'rio10':
+        x = np.linspace(4, 512-4, 512 // 8)
+        y = np.linspace(4, 960-4, 960 // 8)
+        ctr_coord_shape = (120, 64, 3)
+    else:
+        x = np.linspace(4, 640-4, 80) + 106 * (args.dataset == 'Cambridge')
+        y = np.linspace(4, 480-4, 60)
+        ctr_coord_shape = (60, 80, 3)
     xx, yy = np.meshgrid(x, y)
-    pcoord = np.concatenate((np.expand_dims(xx,axis=2), 
+    pcoord = np.concatenate((np.expand_dims(xx,axis=2),
             np.expand_dims(yy,axis=2)), axis=2)
     for _, (img, pose) in enumerate(dataloader):
         if args.dataset == 'Cambridge':
@@ -132,7 +144,7 @@ def eval(args):
             lbl_2 = torch.argmax(lbl_2, dim=1)
             lbl = (lbl_1 * 25 + lbl_2).cpu().data.numpy()[0,:,:]
             ctr_coord = centers[np.reshape(lbl,(-1)),:]
-            ctr_coord = np.reshape(ctr_coord, (60,80,3))
+            ctr_coord = np.reshape(ctr_coord, ctr_coord_shape)
             coord = np.transpose(coord.cpu().data.numpy()[0,:,:,:], (1,2,0))
             coord = coord + ctr_coord
         else:
@@ -174,7 +186,7 @@ if __name__ == '__main__':
                         help='Model to use [\'hscnet, scrnet\']')
     parser.add_argument('--dataset', nargs='?', type=str, default='7S', 
                         choices=('7S', '12S', 'i7S', 'i12S', 'i19S',
-                        'Cambridge'), help='Dataset to use')
+                        'Cambridge', 'rio10'), help='Dataset to use')
     parser.add_argument('--scene', nargs='?', type=str, default='heads', 
                         help='Scene')
     parser.add_argument('--checkpoint', required=True, type=str,

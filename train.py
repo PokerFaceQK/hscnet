@@ -32,7 +32,7 @@ def train(args):
         dataset = Rio10Dataset(
             data_path=args.data_path,
             split='train',
-            aug=True
+            aug=args.aug
         )
     else:
         if args.dataset in ['7S', 'i7S']: 
@@ -58,7 +58,8 @@ def train(args):
 
     # prepare model and optimizer
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    model = get_model(args.model, args.dataset)
+    dataset_name = '' or args.dataset
+    model = get_model(args.model, dataset_name)
     model.init_weights()
     model.to(device)
 
@@ -161,7 +162,7 @@ def train(args):
             print(logtt)
             logfile.write(logtt)
         
-        if int(np.floor(args.n_epoch / 5.)) and epoch % int(np.floor(args.n_epoch / 5.)) == 0:
+        if True or int(np.floor(args.n_epoch / 5.)) and epoch % int(np.floor(args.n_epoch / 5.)) == 0:
             save_state(args.save_path, epoch, model, optimizer)
 
     save_state(args.save_path, epoch, model, optimizer)

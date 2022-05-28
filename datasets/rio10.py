@@ -32,10 +32,13 @@ class Rio10Dataset(Dataset):
 
         self.intrinsics = self.read_intrinsics()
         self.intrinsics_inv = np.linalg.inv(self.intrinsics)
+        self.intrinsics_color = self.intrinsics
         self.centers = np.load(str(self.data_path / f"seq{self.scene_id}" / "centers.npy"))
 
         self.len = len(list(self.seq_path.glob("*color.jpg")))
+        # self.target_shape = (640, 480)
         self.target_shape = (self.img_shape[0] // 32 * 32, self.img_shape[1] // 32 * 32)
+        self.offset = None # (0, 0)
 
     def read_intrinsics(self):
         intrinsics_path = self.seq_path / "camera.yaml"
@@ -77,8 +80,8 @@ class Rio10Dataset(Dataset):
         return pose
     
     def crop(self, matrix, offset=None):
-        if offset:
-            offset_1, offset_2 = offset
+        if self.offset or offset:
+            offset_1, offset_2 = self.offset or offset
         else:
             offset_1 = np.random.randint(0, self.img_shape[0] - self.target_shape[0] + 1)
             offset_2 = np.random.randint(0, self.img_shape[1] - self.target_shape[1] + 1)
@@ -86,7 +89,8 @@ class Rio10Dataset(Dataset):
         return (offset_1, offset_2), matrix[offset_1:shape[0]+offset_1, offset_2:shape[1]+offset_2]
 
     def __len__(self):
-        return self.len
+        # return 10
+        return self.len // 1
     
     def __getitem__(self, idx):
         frame = self.get_frame_by_idx(idx)
@@ -96,7 +100,9 @@ class Rio10Dataset(Dataset):
         pose = self.read_pose(frame['pose'])
 
         if not self.split == "train":
-            return to_tensor_query(img, pose)
+            _, img = self.crop(img, (0, 14))
+            img, pose = to_tensor_query(img, pose)
+            return img, pose
         
         center_coord = self.centers[np.reshape(label, (-1))-1, :]
         center_coord = np.reshape(center_coord, (960, 540, 3)) * 1000
