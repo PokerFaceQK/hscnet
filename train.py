@@ -1,6 +1,4 @@
 from __future__ import division
-from codecs import getdecoder
-from pkgutil import get_data
 
 import sys
 import os
@@ -13,7 +11,7 @@ import numpy as np
 from tqdm import tqdm
 
 from models import get_model
-from datasets import get_dataset, Rio10Dataset
+from datasets import get_dataset, Rio10Dataset, RIOScenes
 from loss import *
 from utils import *
 
@@ -34,6 +32,11 @@ def train(args):
             split='train',
             aug=args.aug
         )
+    elif args.dataset == "rio10_wsz":
+        dataset = RIOScenes(
+            root=args.data_path,
+            dataset="RIO10",
+        )
     else:
         if args.dataset in ['7S', 'i7S']: 
             dataset = get_dataset('7S')
@@ -46,7 +49,7 @@ def train(args):
 
     trainloader = data.DataLoader(dataset, batch_size=args.batch_size,
                                   num_workers=0, shuffle=False)
-    
+
     # loss
     reg_loss = EuclideanLoss()
     if args.model == 'hscnet':
@@ -96,7 +99,7 @@ def train(args):
         args.save_path = 'checkpoints'/save_path
         args.save_path.mkdir(parents=True, exist_ok=True)
         start_epoch = 1
-    
+
     # start training
     args.n_epoch = int(np.ceil(args.n_iter * args.batch_size / len(dataset)))
 
