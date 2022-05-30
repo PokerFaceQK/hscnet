@@ -177,7 +177,7 @@ if __name__ == '__main__':
                         help='Model to use [\'hscnet, scrnet\']')
     parser.add_argument('--dataset', nargs='?', type=str, default='7S', 
                         choices=('7S', '12S', 'i7S', 'i12S', 'i19S',
-                        'Cambridge', 'rio10'), help='Dataset to use')
+                        'Cambridge', 'rio10', 'rio10_wsz'), help='Dataset to use')
     parser.add_argument('--scene', nargs='?', type=str, default='heads', 
                         help='Scene')
     parser.add_argument('--n_iter', nargs='?', type=int, default=900000,
