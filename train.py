@@ -48,7 +48,7 @@ def train(args):
                           model=args.model, aug=args.aug)
 
     trainloader = data.DataLoader(dataset, batch_size=args.batch_size,
-                                  num_workers=0, shuffle=False)
+                                  num_workers=0, shuffle=True)
 
     # loss
     reg_loss = EuclideanLoss()

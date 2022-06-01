@@ -12,8 +12,9 @@ from .utils import DataCache, to_tensor_query, get_coord, data_aug, to_tensor
 class Rio10Dataset(Dataset):
     """Dataset class for rio10."""
 
-    def __init__(self, data_path, split='train', aug=True, seq_idx="01"):
+    def __init__(self, data_path, split='train', aug=True, seq_idx="01", **kwargs):
         super(Rio10Dataset, self).__init__()
+        print("Using qike's implementation.")
         self.data_path = Path(data_path)
         self.split = split
         self.aug = aug
@@ -23,7 +24,7 @@ class Rio10Dataset(Dataset):
 
         if self.split == 'train':
             self.seq_idx = "01"
-        elif self.split == 'validation':
+        elif self.split in ('validation', 'test'):
             self.seq_idx = "02"
         elif self.split == "eval":
             if int(seq_idx) <= 2:

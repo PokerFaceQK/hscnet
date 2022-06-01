@@ -7,11 +7,12 @@ import numpy as np
 import cv2
 import torch
 from torch.utils import data
+from tqdm import tqdm
 
 sys.path.insert(0, './pnpransac')
 from pnpransac import pnpransac
 from models import get_model
-from datasets import get_dataset, Rio10Dataset
+from datasets import get_dataset, Rio10Dataset, RIOScenes
 
 def get_pose_err(pose_gt, pose_est):
     transl_err = np.linalg.norm(pose_gt[0:3,3]-pose_est[0:3,3])
@@ -97,6 +98,12 @@ def eval(args):
             split='test',
         )
         centers = dataset.centers
+    elif args.dataset == 'rio10_wsz':
+        dataset = RIOScenes(
+            root=args.data_path,
+            split='test'
+        )
+        centers = dataset.centers
     else:
         dataset = get_dataset(args.dataset)
         dataset = dataset(args.data_path, args.dataset, args.scene, 
@@ -126,6 +133,10 @@ def eval(args):
         x = np.linspace(4, 512-4, 512 // 8)
         y = np.linspace(4, 960-4, 960 // 8)
         ctr_coord_shape = (120, 64, 3)
+    elif args.dataset == 'rio10_wsz':
+        x = np.linspace(4, 544-4, 544 // 8)
+        y = np.linspace(4, 960-4, 960 // 8)
+        ctr_coord_shape = (120, 68, 3)
     else:
         x = np.linspace(4, 640-4, 80) + 106 * (args.dataset == 'Cambridge')
         y = np.linspace(4, 480-4, 60)
@@ -133,6 +144,7 @@ def eval(args):
     xx, yy = np.meshgrid(x, y)
     pcoord = np.concatenate((np.expand_dims(xx,axis=2),
             np.expand_dims(yy,axis=2)), axis=2)
+    # for _, (img, pose) in tqdm(enumerate(dataloader)):
     for _, (img, pose) in enumerate(dataloader):
         if args.dataset == 'Cambridge':
             img = img[:,:,:,106:106+640].to(device)
@@ -146,9 +158,9 @@ def eval(args):
             ctr_coord = centers[np.reshape(lbl,(-1)),:]
             ctr_coord = np.reshape(ctr_coord, ctr_coord_shape)
             coord = np.transpose(coord.cpu().data.numpy()[0,:,:,:], (1,2,0))
-            coord = coord + ctr_coord
+            coord = coord / 1 + ctr_coord
         else:
-            coord = np.transpose(model(img).cpu().data.numpy()[0,:,:,:], 
+            coord = np.transpose(model(img).cpu().data.numpy()[0,:,:,:],
                     (1,2,0))
 
         coord = np.ascontiguousarray(coord)
@@ -167,7 +179,7 @@ def eval(args):
         rot_err_list.append(rot_err)
         transl_err_list.append(transl_err)
         
-        print('Pose error: {}m, {}\u00b0'.format(transl_err, rot_err)) 
+        print('Pose error: {}m, {}\u00b0'.format(transl_err, rot_err))
     
     results = np.array([transl_err_list, rot_err_list]).T
     np.savetxt(os.path.join(args.output,
@@ -186,7 +198,7 @@ if __name__ == '__main__':
                         help='Model to use [\'hscnet, scrnet\']')
     parser.add_argument('--dataset', nargs='?', type=str, default='7S', 
                         choices=('7S', '12S', 'i7S', 'i12S', 'i19S',
-                        'Cambridge', 'rio10'), help='Dataset to use')
+                        'Cambridge', 'rio10', 'rio10_wsz'), help='Dataset to use')
     parser.add_argument('--scene', nargs='?', type=str, default='heads', 
                         help='Scene')
     parser.add_argument('--checkpoint', required=True, type=str,

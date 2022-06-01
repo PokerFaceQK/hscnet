@@ -12,6 +12,7 @@ from .utils import *
 class RIOScenes(data.Dataset):
     def __init__(self, root, dataset='RIO10', scene='scene01/seq01', split='train',
                     model='hscnet', aug='True'):
+        print("Using wsz's implementation")
         self.intrinsics_color = np.array([[756.0, 0.0,     270.4],
                        [0.0,     756.8, 492.9],
                        [0.0,     0.0,  1.0]])
