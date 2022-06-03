@@ -51,13 +51,20 @@ def train(args):
                                   num_workers=0, shuffle=True)
 
     # loss
-    reg_loss = EuclideanLoss()
     if args.model == 'hscnet':
         cls_loss = CELoss()
+        reg_loss = EuclideanLoss()
         if args.dataset in ['i7S', 'i12S', 'i19S']:  
             w1, w2, w3 = 1, 1, 100000
         else:
             w1, w2, w3 = 1, 1, 10
+    elif args.model == 'hscnet_unc':
+        cls_loss = CELoss()
+        reg_loss = GaussianNLLLoss()
+        if args.dataset in ['i7S', 'i12S', 'i19S']:  
+            w1, w2, w3 = 1, 1, 100000
+        else:
+            w1, w2, w3 = 1, 1, 1
 
     # prepare model and optimizer
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -114,7 +121,7 @@ def train(args):
             lbl_1_loss_list = []
             lbl_2_loss_list = []
                 
-        for _, (img, coord, mask, lbl_1, lbl_2, lbl_1_oh,
+        for iter_num, (img, coord, mask, lbl_1, lbl_2, lbl_1_oh,
                 lbl_2_oh) in enumerate(tqdm(trainloader)):
 
             if mask.sum() == 0:
@@ -136,11 +143,22 @@ def train(args):
                 lbl_2_loss = cls_loss(lbl_2_pred, lbl_2, mask)
                 coord_loss = reg_loss(coord_pred, coord, mask)
                 train_loss = w3*coord_loss + w1*lbl_1_loss + w2*lbl_2_loss
+            elif args.model == 'hscnet_unc':
+                lbl_1 = lbl_1.to(device)
+                lbl_2 = lbl_2.to(device)
+                lbl_1_oh = lbl_1_oh.to(device)
+                lbl_2_oh = lbl_2_oh.to(device)
+                coord_mean, coord_std, lbl_2_pred, lbl_1_pred = model(img,lbl_1_oh,
+                                                           lbl_2_oh)
+                lbl_1_loss = cls_loss(lbl_1_pred, lbl_1, mask)
+                lbl_2_loss = cls_loss(lbl_2_pred, lbl_2, mask)
+                coord_loss = reg_loss(coord, coord_mean, coord_std, mask)
+                train_loss = w3*coord_loss + w1*lbl_1_loss + w2*lbl_2_loss
             else:
                 coord_pred = model(img)
                 coord_loss = reg_loss(coord_pred, coord, mask)
                 train_loss = coord_loss
-            
+
             coord_loss_list.append(coord_loss.item())
             if args.model == 'hscnet':
                 lbl_1_loss_list.append(lbl_1_loss.item())
@@ -149,6 +167,9 @@ def train(args):
 
             train_loss.backward()
             optimizer.step()
+            
+            if (iter_num + 1) % 5 == 0:
+                print(f"Epoch{epoch}-iter{iter_num}-reg_loss:{coord_loss} cls_loss_1: {lbl_1_loss} cls_loss_2: {lbl_2_loss} train_loss: {train_loss}")
 
         with open(args.save_path/args.log_summary, 'a') as logfile:
             if args.model == 'hscnet':
@@ -173,7 +194,7 @@ def train(args):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Hscnet")
     parser.add_argument('--model', nargs='?', type=str, default='hscnet',
-                        choices=('hscnet', 'scrnet'),
+                        choices=('hscnet', 'scrnet', 'hscnet_unc'),
                         help='Model to use [\'hscnet, scrnet\']')
     parser.add_argument('--dataset', nargs='?', type=str, default='7S', 
                         choices=('7S', '12S', 'i7S', 'i12S', 'i19S',

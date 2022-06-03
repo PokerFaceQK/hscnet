@@ -1,4 +1,5 @@
 from __future__ import division
+from turtle import forward
 
 import torch
 import torch.nn as nn
@@ -25,6 +26,34 @@ class EuclideanLoss(nn.Module):
         loss /= mask.sum()
 
         return loss
+
+class GaussianNLLLoss(nn.Module):
+    def __init__(self, eps=1e-06):
+        super().__init__()
+        self.eps = eps
+    
+    def forward(self, target, mean, std, mask):
+        n, c, h, w = target.size()
+
+        target = target.transpose(1, 2).transpose(2, 3).contiguous().view(-1, c)
+        target = target[mask.view(n * h * w, 1).repeat(1, c) == 1.]
+        target = target.view(-1, c)
+
+        mean = mean.transpose(1, 2).transpose(2, 3).contiguous().view(-1, c)
+        mean = mean[mask.view(n * h * w, 1).repeat(1, c) == 1.]
+        mean = mean.view(-1, c)
+
+        std = std.transpose(1, 2).transpose(2, 3).contiguous().view(-1, c)
+        std = std[mask.view(n * h * w, 1).repeat(1, c) == 1.]
+        var = torch.pow(std.view(-1, c), 2)
+
+        loss = 0.5 * (torch.log(torch.clamp(var, min=self.eps)) + torch.pow(mean - target, 2) / torch.clamp(var, min=self.eps))
+        loss = torch.sum(loss)
+        loss /= mask.sum()
+
+        return loss
+
+
 
 class CELoss(nn.Module):
     def __init__(self):

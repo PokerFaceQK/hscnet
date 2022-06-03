@@ -1,3 +1,5 @@
+from turtle import forward
+from xml.sax.handler import feature_namespace_prefixes
 import torch
 import torch.nn as nn
 
@@ -60,6 +62,7 @@ class HSCNet(nn.Module):
 
         # regression
         conv_planes = [64, 128, 128, 256, 256, 512, 512, 512, 4096, 4096]
+        self.conv_planes = conv_planes
         self.conv1a = conv(3,              conv_planes[0])
         self.conv1b = conv(conv_planes[0], conv_planes[1], stride=2)        
         self.conv2a = conv(conv_planes[1], conv_planes[2], stride=2)     
@@ -77,7 +80,7 @@ class HSCNet(nn.Module):
             conv_planes_c2 = [256, 256, 256, 256, 128, 25]
         else:
             conv_planes_c2 = [128, 128, 128, 128, 64, 25]
-        self.convc1 = conv(conv_planes[7], conv_planes_c2[0], kernel_size=3, 
+        self.convc1 = conv(conv_planes[7], conv_planes_c2[0], kernel_size=3,
                     stride=1)       
         self.dsconv1 = downsample_conv(conv_planes_c2[0], conv_planes_c2[1], 
                     kernel_size=3)
@@ -182,8 +185,12 @@ class HSCNet(nn.Module):
                 nn.init.xavier_uniform_(m.weight.data)
                 if m.bias is not None:
                     m.bias.data.zero_()
-
+    
     def forward(self, x, lbl_1=None, lbl_2=None):
+        _, out_coord, out_lbl_2, out_lbl_1 = self._forward(x, lbl_1=lbl_1, lbl_2=lbl_2)
+        return out_coord, out_lbl_2, out_lbl_1
+
+    def _forward(self, x, lbl_1=None, lbl_2=None):
         out = self.conv1a(x)
         out = self.conv1b(out)
         out = self.conv2a(out) 
@@ -245,4 +252,15 @@ class HSCNet(nn.Module):
         out = self.cond(self.conv5b(out),out_gconv2_gamma_2,out_gconv2_beta_2)
         out_coord = self.convout(out)
         
-        return out_coord, out_lbl_2, out_lbl_1
+        return out, out_coord, out_lbl_2, out_lbl_1
+
+class HSCNetUnc(HSCNet):
+    def __init__(self, training=True, dataset='7S'):
+        super().__init__(training, dataset)
+        self.convout_std = conv_(self.conv_planes[9], 3)
+    
+    def forward(self, x, lbl_1=None, lbl_2=None):
+        feat_map, out_coord_mean, out_lbl_2, out_lbl_1 = self._forward(x, lbl_1=lbl_1, lbl_2=lbl_2)
+        out_coord_logvar = self.convout_std(feat_map)
+        out_coord_std = torch.exp(0.5 * out_coord_logvar)
+        return out_coord_mean, out_coord_std, out_lbl_2, out_lbl_1
