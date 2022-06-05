@@ -14,8 +14,12 @@ def adjust_lr(optimizer, init_lr, c_iter, n_iter):
     return lr    
 
 def save_state(savepath, epoch, model, optimizer):
+    if epoch % 5 == 0:
+        filename = f"model_{epoch}.pkl"
+    else:
+        filename = "model.pkl"
     state = {'epoch': epoch,
         'model_state': model.state_dict(),
         'optimizer_state': optimizer.state_dict()}
-    filepath = os.path.join(savepath, 'model.pkl')
+    filepath = os.path.join(savepath, filename)
     torch.save(state, filepath)
