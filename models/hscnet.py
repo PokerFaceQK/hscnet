@@ -246,7 +246,7 @@ class HSCNet(nn.Module):
         out_gconv2_beta_1 = self.gconv2_beta_1(out)
         out_gconv2_gamma_2 = self.gconv2_gamma_2(out)
         out_gconv2_beta_2 = self.gconv2_beta_2(out)
-           
+
         out = self.cond(self.conv5a(out_conv4c),out_gconv2_gamma_1,
                     out_gconv2_beta_1)
         out = self.cond(self.conv5b(out),out_gconv2_gamma_2,out_gconv2_beta_2)

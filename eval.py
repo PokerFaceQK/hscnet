@@ -159,16 +159,40 @@ def eval(args):
             ctr_coord = np.reshape(ctr_coord, ctr_coord_shape)
             coord = np.transpose(coord.cpu().data.numpy()[0,:,:,:], (1,2,0))
             coord = coord / 1 + ctr_coord
+        elif args.model == 'hscnet_unc':
+            coord, coord_std, lbl_2, lbl_1 = model(img)
+            lbl_1 = torch.argmax(lbl_1, dim=1)
+            lbl_2 = torch.argmax(lbl_2, dim=1)
+            lbl = (lbl_1 * 25 + lbl_2).cpu().data.numpy()[0,:,:]
+            ctr_coord = centers[np.reshape(lbl,(-1)),:]
+            ctr_coord = np.reshape(ctr_coord, ctr_coord_shape)
+            coord = np.transpose(coord.cpu().data.numpy()[0,:,:,:], (1,2,0))
+            coord_std = np.transpose(coord_std.cpu().data.numpy()[0,:,:,:], (1,2,0))
+            coord = coord / 1 + ctr_coord
         else:
             coord = np.transpose(model(img).cpu().data.numpy()[0,:,:,:],
                     (1,2,0))
 
         coord = np.ascontiguousarray(coord)
+        coord = np.reshape(coord, (-1, 3)).astype(np.float64)
         pcoord = np.ascontiguousarray(pcoord)
-        rot, transl = pose_solver.RANSAC_loop(np.reshape(pcoord, 
-                (-1,2)).astype(np.float64), np.reshape(coord,  
-                (-1,3)).astype(np.float64), 256) 
-        
+        pcoord = np.reshape(pcoord,(-1,2)).astype(np.float64)
+
+        percentile = 0.3
+        # get top k coord
+        if args.model == 'hscnet_unc' and percentile < 1:
+            coord_std = np.ascontiguousarray(coord_std)
+            coord_std = np.reshape(coord_std, (-1, 3)).astype(np.float64)
+            std_norm = np.sum(coord_std ** 2, axis=1).reshape(-1)
+            # std_norm = coord_std[:, 0] * coord_std[:, 1] * coord_std[:, 2]
+            std_thres = np.sort(std_norm)[int(len(std_norm) * percentile)]
+            good_correspondence_mask = std_norm < std_thres
+            coord = coord[good_correspondence_mask, :]
+            pcoord_good = pcoord[good_correspondence_mask, :]
+        else:
+            pcoord_good = pcoord
+
+        rot, transl = pose_solver.RANSAC_loop(pcoord_good, coord, 256)
         pose_gt = pose.data.numpy()[0,:,:]
         pose_est = np.eye(4)
         pose_est[0:3,0:3] = cv2.Rodrigues(rot)[0].T
@@ -194,7 +218,7 @@ def eval(args):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Hscnet")
     parser.add_argument('--model', nargs='?', type=str, default='hscnet',
-                        choices=('hscnet', 'scrnet'),
+                        choices=('hscnet', 'scrnet', 'hscnet_unc'),
                         help='Model to use [\'hscnet, scrnet\']')
     parser.add_argument('--dataset', nargs='?', type=str, default='7S', 
                         choices=('7S', '12S', 'i7S', 'i12S', 'i19S',
