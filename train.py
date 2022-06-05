@@ -48,7 +48,7 @@ def train(args):
                           model=args.model, aug=args.aug)
 
     trainloader = data.DataLoader(dataset, batch_size=args.batch_size,
-                                  num_workers=0, shuffle=True)
+                                  num_workers=12, shuffle=True)
 
     # loss
     if args.model == 'hscnet':
@@ -117,7 +117,7 @@ def train(args):
         model.train()
         train_loss_list = []
         coord_loss_list = []
-        if args.model == 'hscnet':
+        if args.model in ('hscnet', 'hscnet_unc'):
             lbl_1_loss_list = []
             lbl_2_loss_list = []
                 
@@ -160,7 +160,7 @@ def train(args):
                 train_loss = coord_loss
 
             coord_loss_list.append(coord_loss.item())
-            if args.model == 'hscnet':
+            if args.model in ('hscnet', 'hscnet_unc'):
                 lbl_1_loss_list.append(lbl_1_loss.item())
                 lbl_2_loss_list.append(lbl_2_loss.item())          
             train_loss_list.append(train_loss.item())
@@ -168,11 +168,11 @@ def train(args):
             train_loss.backward()
             optimizer.step()
             
-            if (iter_num + 1) % 5 == 0:
+            if False and (iter_num + 1) % 5 == 0:
                 print(f"Epoch{epoch}-iter{iter_num}-reg_loss:{coord_loss} cls_loss_1: {lbl_1_loss} cls_loss_2: {lbl_2_loss} train_loss: {train_loss}")
 
         with open(args.save_path/args.log_summary, 'a') as logfile:
-            if args.model == 'hscnet':
+            if args.model in ('hscnet', 'hscnet_unc'):
                 logtt = 'Epoch {}/{} - lr: {} - reg_loss: {} - cls_loss_1: {}' \
                         ' - cls_loss_2: {} - train_loss: {} \n'.format(
                          epoch, args.n_epoch, lr, np.mean(coord_loss_list), 
