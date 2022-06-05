@@ -61,6 +61,7 @@ def train(args):
     elif args.model == 'hscnet_unc':
         cls_loss = CELoss()
         reg_loss = GaussianNLLLoss()
+        reg_loss_debug = EuclideanLoss()
         if args.dataset in ['i7S', 'i12S', 'i19S']:  
             w1, w2, w3 = 1, 1, 100000
         else:
@@ -112,11 +113,12 @@ def train(args):
 
     for epoch in range(start_epoch, args.n_epoch+1):
         lr = adjust_lr(optimizer, args.init_lr, (epoch - 1) 
-                       * np.ceil(len(dataset) / args.batch_size), 
+                       * np.ceil(len(dataset) / args.batch_size),
                        args.n_iter)
         model.train()
         train_loss_list = []
         coord_loss_list = []
+        coord_loss_debug_list = []
         if args.model in ('hscnet', 'hscnet_unc'):
             lbl_1_loss_list = []
             lbl_2_loss_list = []
@@ -154,12 +156,15 @@ def train(args):
                 lbl_2_loss = cls_loss(lbl_2_pred, lbl_2, mask)
                 coord_loss = reg_loss(coord, coord_mean, coord_std, mask)
                 train_loss = w3*coord_loss + w1*lbl_1_loss + w2*lbl_2_loss
+                with torch.no_grad():
+                    coord_loss_debug = reg_loss_debug(coord_mean, coord, mask)
             else:
                 coord_pred = model(img)
                 coord_loss = reg_loss(coord_pred, coord, mask)
                 train_loss = coord_loss
 
             coord_loss_list.append(coord_loss.item())
+            coord_loss_debug_list.append(coord_loss_debug.item())
             if args.model in ('hscnet', 'hscnet_unc'):
                 lbl_1_loss_list.append(lbl_1_loss.item())
                 lbl_2_loss_list.append(lbl_2_loss.item())          
@@ -167,15 +172,16 @@ def train(args):
 
             train_loss.backward()
             optimizer.step()
-            
+
             if False and (iter_num + 1) % 5 == 0:
                 print(f"Epoch{epoch}-iter{iter_num}-reg_loss:{coord_loss} cls_loss_1: {lbl_1_loss} cls_loss_2: {lbl_2_loss} train_loss: {train_loss}")
 
         with open(args.save_path/args.log_summary, 'a') as logfile:
             if args.model in ('hscnet', 'hscnet_unc'):
-                logtt = 'Epoch {}/{} - lr: {} - reg_loss: {} - cls_loss_1: {}' \
+                logtt = 'Epoch {}/{} - lr: {} - reg_loss: {} - reg_loss_debug: {} - cls_loss_1: {}' \
                         ' - cls_loss_2: {} - train_loss: {} \n'.format(
-                         epoch, args.n_epoch, lr, np.mean(coord_loss_list), 
+                         epoch, args.n_epoch, lr, np.mean(coord_loss_list),
+                         np.mean(coord_loss_debug_list),
                          np.mean(lbl_1_loss_list), np.mean(lbl_2_loss_list),
                          np.mean(train_loss_list))
             else:
