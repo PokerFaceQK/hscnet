@@ -6,6 +6,8 @@ import numpy as np
 import cv2
 from torch.utils.data import Dataset
 
+import datasets
+
 from .utils import DataCache, to_tensor_query, get_coord, data_aug, to_tensor
 
 
@@ -28,7 +30,7 @@ class Rio10Dataset(Dataset):
             self.seq_idx = "02"
         elif self.split == "eval":
             if int(seq_idx) <= 2:
-                raise ValueError("Valid seq idx for evaluation!")
+                raise ValueError("Invalid seq idx for evaluation!")
         self.seq_path = self.data_path / f"seq{self.scene_id}" / f"seq{self.scene_id}_{self.seq_idx}"
 
         self.intrinsics = self.read_intrinsics()
@@ -39,7 +41,7 @@ class Rio10Dataset(Dataset):
         self.len = len(list(self.seq_path.glob("*color.jpg")))
         # self.target_shape = (640, 480)
         self.target_shape = (self.img_shape[0] // 32 * 32, self.img_shape[1] // 32 * 32)
-        self.offset = None # (0, 0)
+        self.offset = None  # (0, 0)
 
     def read_intrinsics(self):
         intrinsics_path = self.seq_path / "camera.yaml"
@@ -58,6 +60,8 @@ class Rio10Dataset(Dataset):
         frame = {}
         for ext_name in ['color.jpg', 'depth.png', 'label.png', 'pose.txt']:
             tag = ext_name.split('.')[0]
+            if self.split == "validation" and tag == "depth":
+                ext_name = "rendered.depth.png"
             frame[tag] = f"frame-{str(idx).zfill(6)}.{ext_name}"
         return frame
     
@@ -100,7 +104,7 @@ class Rio10Dataset(Dataset):
         label = self.read_label(frame['label'])
         pose = self.read_pose(frame['pose'])
 
-        if not self.split == "train":
+        if self.split == "test":
             _, img = self.crop(img, (0, 14))
             img, pose = to_tensor_query(img, pose)
             return img, pose
@@ -139,3 +143,28 @@ class Rio10Dataset(Dataset):
             img, coord, mask, label_1, label_2, 25
         )
         return img, coord, mask, label_1, label_2, label_1_oh, label_2_oh
+    
+    def generate_label(self, idx):
+        print(f"Generating label for the {idx}-th frame.")
+        if self.split == "train":
+            print("Split is train. Skipping...")
+            return
+        frame = self.get_frame_by_idx(idx)
+        if (self.seq_path / frame['label']).is_file():
+            print(f"{self.seq_path / frame['label']} exists. Skipping...")
+            return
+        depth = self.read_depth(frame['depth'])
+        pose = self.read_pose(frame['pose'])
+        depth[depth == 65535] = 0
+        depth = depth * 1.0
+        coord, mask = get_coord(depth, pose, self.intrinsics_inv)
+        label = np.tile(coord[:, :, :, np.newaxis], (1, 1, 1, self.centers.shape[0])) - self.centers.T * 1000
+        label = np.sum(label ** 2, axis=-2)
+        label = np.argmin(label, axis=-1) + 1
+        label = label * mask
+        cv2.imwrite(str(self.seq_path / frame['label']), label)
+
+
+if __name__ == "__main__":
+    dataset = Rio10Dataset("data/rio10/scene01")
+    dataset.generate_label()
